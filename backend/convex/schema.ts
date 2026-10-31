@@ -17,12 +17,15 @@ export default defineSchema({
   })
     .index("by_parent", ["parentId", "order"])
     .index("by_topic", ["topicId"])
-    .index("by_slug", ["slug"]),
+    .index("by_slug", ["slug"])
+    .searchIndex("search_title", { searchField: "title", filterFields: ["kind"] }),
 
   // Page bodies, kept apart so saving a page does not re-send the tree.
   contents: defineTable({
     nodeId: v.id("nodes"),
     markdown: v.string(),
     updatedAt: v.number(),
-  }).index("by_node", ["nodeId"]),
+  })
+    .index("by_node", ["nodeId"])
+    .searchIndex("search_markdown", { searchField: "markdown" }),
 });
