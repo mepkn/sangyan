@@ -97,7 +97,7 @@ describe("GET /kunji/tools", () => {
     const { t } = await setup();
     const res = await t.fetch("/kunji/tools", { headers: { Authorization: `Bearer ${SECRET}` } });
     const tools = (await res.json()) as { name: string; inputSchema: { type: string } }[];
-    expect(tools.map((x) => x.name)).toEqual(["search_notes", "get_note"]);
+    expect(tools.map((x) => x.name)).toEqual(["search_notes", "get_note", "add_note", "append_to_note"]);
     expect(tools.every((x) => x.inputSchema.type === "object" && /^[a-z][a-z0-9_]{0,63}$/.test(x.name))).toBe(true);
   });
 });
@@ -188,5 +188,51 @@ describe("POST /kunji/call", () => {
     const { result } = await call(t, "get_note", { id: state });
     expect(result).toMatchObject({ truncated: true, length: 100_010 });
     expect(result.markdown).toHaveLength(100_000);
+  });
+
+  it("add_note creates a page at the end of a section named by path, ignoring case", async () => {
+    vi.stubEnv("SITE_URL", "https://learn.example.com");
+    const { t, hooks } = await setup();
+    const { ok, result } = await call(t, "add_note", { section: "react /  HOOKS", title: " useRef ", markdown: "Holds a mutable value." });
+    expect(ok).toBe(true);
+    expect(result).toMatchObject({ title: "useRef", path: ["React", "Hooks"], url: `https://learn.example.com/react/${result.id}` });
+    const page = await t.run(async (ctx) => await ctx.db.get(result.id));
+    expect(page).toMatchObject({ kind: "page", parentId: hooks, order: 2 });
+    expect((await call(t, "get_note", { id: result.id })).result.markdown).toBe("Holds a mutable value.");
+    const atTopic = await call(t, "add_note", { section: "react", title: "Empty" });
+    expect(atTopic.result).toMatchObject({ path: ["React"], length: 0 });
+  });
+
+  it("add_note refuses unknown sections, pages as parents and bad titles", async () => {
+    const { t } = await setup();
+    expect(await call(t, "add_note", { section: "Vue", title: "x" })).toMatchObject({
+      ok: false,
+      error: { code: "tool_error", message: expect.stringContaining("Sections there: React") },
+    });
+    expect(await call(t, "add_note", { section: "React / Hooks / useEffect", title: "x" })).toMatchObject({
+      ok: false,
+      error: { message: expect.stringContaining('No section named "useEffect"') },
+    });
+    expect(await call(t, "add_note", { section: "React", title: "  " })).toMatchObject({ ok: false, error: { message: "Title cannot be empty." } });
+    expect(await call(t, "add_note", { section: "React", title: "x", markdown: "a".repeat(500_001) })).toMatchObject({
+      ok: false,
+      error: { message: "Page is too large." },
+    });
+  });
+
+  it("append_to_note adds after a blank line and keeps the text", async () => {
+    const { t, effect, empty, hooks } = await setup();
+    const { result } = await call(t, "append_to_note", { id: effect, markdown: "## Strict mode\n\nEffects run twice in dev." });
+    const { result: note } = await call(t, "get_note", { id: effect });
+    expect(note.markdown).toBe("# useEffect\n\nReturn a cleanup function to unsubscribe.\n\n## Strict mode\n\nEffects run twice in dev.");
+    expect(result).toMatchObject({ id: effect, length: note.markdown.length });
+    await call(t, "append_to_note", { id: empty, markdown: "First line." });
+    expect((await call(t, "get_note", { id: empty })).result.markdown).toBe("First line.");
+    expect(await call(t, "append_to_note", { id: effect, markdown: " \n" })).toMatchObject({ ok: false, error: { code: "tool_error" } });
+    expect(await call(t, "append_to_note", { id: hooks, markdown: "x" })).toMatchObject({ ok: false, error: { code: "tool_error" } });
+    expect(await call(t, "append_to_note", { id: effect, markdown: "a".repeat(500_000) })).toMatchObject({
+      ok: false,
+      error: { message: expect.stringContaining("would be over") },
+    });
   });
 });

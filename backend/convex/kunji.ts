@@ -1,12 +1,15 @@
 import { ConvexError, v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
-import { internalQuery, type QueryCtx } from "./_generated/server";
+import { internalMutation, internalQuery, type QueryCtx } from "./_generated/server";
 import { findKunjiUser, type KunjiTool } from "./lib/kunji";
+import { insertNode, MAX_PAGE, writePage } from "./nodes";
 
 // Learn's tools for kunji (kunji SPEC.md → App contract). The notes are one
 // shared tree that anyone can read on the site, so the tools see every page;
-// kunji still only reaches them for a verified, allowlisted user. Read-only.
+// kunji still only reaches them for a verified, allowlisted user. The writes
+// only add: add_note creates a page in an existing section, append_to_note adds
+// to the end of a page. Nothing renames, moves or deletes.
 
 const SEARCH_LIMIT = 10;
 const SEARCH_MAX = 50;
@@ -117,6 +120,82 @@ export const getNote = internalQuery({
   },
 });
 
+const key = (s: string) => s.trim().replace(/\s+/g, " ").toLowerCase();
+
+/** A topic or section named by its path, e.g. "React / Hooks" (titles, ignoring case). */
+async function findSection(ctx: QueryCtx, path: string): Promise<Doc<"nodes">> {
+  const parts = path.split("/").map((p) => p.trim()).filter(Boolean);
+  if (parts.length === 0) throw new ConvexError('"section" cannot be empty.');
+  let options = await ctx.db
+    .query("nodes")
+    .withIndex("by_parent", (q) => q.eq("parentId", undefined))
+    .collect();
+  let node: Doc<"nodes"> | undefined;
+  const walked: string[] = [];
+  for (const part of parts) {
+    const sections = options.filter((n) => n.kind === "section");
+    const matches = sections.filter((n) => key(n.title) === key(part) || n.slug === key(part));
+    if (matches.length !== 1) {
+      const where = walked.length ? `in "${walked.join(" / ")}"` : "at the top level";
+      const names = sections.map((n) => n.title).join(", ") || "none";
+      if (matches.length > 1) throw new ConvexError(`Several sections named "${part}" ${where}.`);
+      throw new ConvexError(`No section named "${part}" ${where}. Sections there: ${names}.`);
+    }
+    node = matches[0];
+    walked.push(node.title);
+    options = await ctx.db
+      .query("nodes")
+      .withIndex("by_parent", (q) => q.eq("parentId", node!._id))
+      .collect();
+  }
+  return node!;
+}
+
+async function pageView(ctx: QueryCtx, pageId: Id<"nodes">) {
+  const page = (await ctx.db.get(pageId))!;
+  const trail = await trailOf(ctx, page);
+  const markdown = (await markdownOf(ctx, pageId))?.markdown ?? "";
+  return {
+    id: page._id,
+    title: page.title,
+    path: trail.map((n) => n.title),
+    url: pageUrl(trail[0], page._id),
+    length: markdown.length,
+  };
+}
+
+export const addNote = internalMutation({
+  args: { section: v.string(), title: v.string(), markdown: v.string() },
+  handler: async (ctx, { section, title, markdown }) => {
+    const parent = await findSection(ctx, section);
+    const id = await insertNode(ctx, parent, "page", title);
+    if (markdown) await writePage(ctx, id, markdown);
+    return await pageView(ctx, id);
+  },
+});
+
+export const appendToNote = internalMutation({
+  args: { id: v.string(), markdown: v.string() },
+  handler: async (ctx, { id: ref, markdown }) => {
+    const id = ctx.db.normalizeId("nodes", ref.trim());
+    const page = id === null ? null : await ctx.db.get(id);
+    if (page === null || page.kind !== "page") {
+      throw new ConvexError(`No note with id "${ref.trim()}". Use search_notes to find one.`);
+    }
+    const current = (await markdownOf(ctx, page._id))?.markdown ?? "";
+    const next = current.trim() ? `${current.replace(/\s+$/, "")}\n\n${markdown}` : markdown;
+    if (next.length > MAX_PAGE) throw new ConvexError(`The page would be over ${MAX_PAGE.toLocaleString("en")} characters.`);
+    await writePage(ctx, page._id, next);
+    return await pageView(ctx, page._id);
+  },
+});
+
+function requireText(value: unknown, name: string): string {
+  const text = String(value ?? "");
+  if (!text.trim()) throw new ConvexError(`"${name}" cannot be empty.`);
+  return text;
+}
+
 export const tools: KunjiTool[] = [
   {
     name: "search_notes",
@@ -154,5 +233,50 @@ export const tools: KunjiTool[] = [
       additionalProperties: false,
     },
     handler: async (ctx, _userId, input) => await ctx.runQuery(internal.kunji.getNote, { id: input.id as string }),
+  },
+  {
+    name: "add_note",
+    description:
+      "Create a new Learn page (note) at the end of an existing topic or section, with a title and markdown text. " +
+      "Name the place by its path of titles, e.g. \"React\" or \"React / Hooks\" (ignoring case). It never creates " +
+      "topics or sections; an unknown name is refused with the names that exist there. Returns the new page's id, " +
+      "title, path and url.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        section: { type: "string", description: 'Topic or section path, e.g. "React / Hooks".' },
+        title: { type: "string", description: "The page title; at most 200 characters." },
+        markdown: { type: "string", description: `The page text as markdown (optional); at most ${MAX_PAGE.toLocaleString("en")} characters.` },
+      },
+      required: ["section", "title"],
+      additionalProperties: false,
+    },
+    handler: async (ctx, _userId, input) =>
+      await ctx.runMutation(internal.kunji.addNote, {
+        section: input.section as string,
+        title: input.title as string,
+        markdown: (input.markdown as string | undefined) ?? "",
+      }),
+  },
+  {
+    name: "append_to_note",
+    description:
+      "Add markdown to the end of an existing Learn page, after a blank line; the existing text is kept. Take the id " +
+      "from search_notes. If the user is editing that page in the browser with unsaved changes, their next save " +
+      "replaces the page and drops what was appended. Returns the page's id, title, path, url and new length.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string", description: "The page's id from search_notes." },
+        markdown: { type: "string", description: "The text to add, as markdown." },
+      },
+      required: ["id", "markdown"],
+      additionalProperties: false,
+    },
+    handler: async (ctx, _userId, input) =>
+      await ctx.runMutation(internal.kunji.appendToNote, {
+        id: input.id as string,
+        markdown: requireText(input.markdown, "markdown"),
+      }),
   },
 ];

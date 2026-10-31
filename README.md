@@ -14,7 +14,8 @@ Notes I write while learning React, Svelte, Express and more, created and edited
 - `Ctrl+K` to jump to any page; light and dark theme
 - Anyone can read; only allowlisted emails can sign in and edit. Sign-up confirms the email with a
   6-digit code, and "Forgot password?" resets the password with one
-- Tools for AI clients through [kunji](https://kunji.pknspace.com): `search_notes` and `get_note` (read-only)
+- Tools for AI clients through [kunji](https://kunji.pknspace.com): `search_notes`, `get_note`,
+  `add_note` and `append_to_note`
 
 ## Stack
 
@@ -80,7 +81,10 @@ Caddy serves `/var/www/learn` with the SPA fallback `try_files {path} /index.htm
   - `backend/convex/kunji.ts` + `lib/kunji.ts`: the kunji app contract (secret check, input check, the
     single verified user by email). The notes are shared, so the tools see every page: `search_notes`
     (title and text search indexes, title matches first, with path, snippet and link) and `get_note`
-    (one page's markdown, cut at 100,000 characters). Nothing writes.
+    (one page's markdown, cut at 100,000 characters) read; `add_note` creates a page in an existing topic or
+    section named by path (`React / Hooks`) and `append_to_note` adds text to the end of a page, sharing
+    `insertNode` / `writePage` with `nodes.ts`. Nothing creates topics or sections, renames, moves or
+    deletes. An append can be lost if the page is open with unsaved edits (last save wins).
   - `web/src/lib/tree.ts`: flattening the tree and working out drag-and-drop targets (tested)
   - `web/src/components/sidebar/`: the tree, menus, inline rename, drag and drop
   - `web/src/components/editor/Editor.tsx`: Tiptap with markdown in and out, right-click menu

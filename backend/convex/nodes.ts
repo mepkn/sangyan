@@ -134,21 +134,30 @@ export const createTopic = mutation({
   },
 });
 
+/** Adds a section or page at the end of `parent`; shared with kunji's add_note. */
+export async function insertNode(
+  ctx: MutationCtx,
+  parent: Doc<"nodes">,
+  kind: Doc<"nodes">["kind"],
+  title: string,
+): Promise<Id<"nodes">> {
+  if (parent.kind !== "section") throw new ConvexError("Pages cannot contain other items.");
+  const siblings = await children(ctx, parent._id);
+  return ctx.db.insert("nodes", {
+    kind,
+    title: cleanTitle(title),
+    parentId: parent._id,
+    topicId: parent.topicId ?? parent._id,
+    order: siblings.length,
+    updatedAt: Date.now(),
+  });
+}
+
 export const create = mutation({
   args: { parentId: v.id("nodes"), kind, title: v.string() },
   handler: async (ctx, args) => {
     await requireEditor(ctx);
-    const parent = await getNode(ctx, args.parentId);
-    if (parent.kind !== "section") throw new ConvexError("Pages cannot contain other items.");
-    const siblings = await children(ctx, parent._id);
-    return ctx.db.insert("nodes", {
-      kind: args.kind,
-      title: cleanTitle(args.title),
-      parentId: parent._id,
-      topicId: parent.topicId ?? parent._id,
-      order: siblings.length,
-      updatedAt: Date.now(),
-    });
+    return insertNode(ctx, await getNode(ctx, args.parentId), args.kind, args.title);
   },
 });
 
@@ -207,21 +216,28 @@ export const move = mutation({
   },
 });
 
+export const MAX_PAGE = 500_000;
+
+/** Replaces a page's markdown; shared with kunji's add_note and append_to_note. */
+export async function writePage(ctx: MutationCtx, nodeId: Id<"nodes">, markdown: string): Promise<number> {
+  const node = await getNode(ctx, nodeId);
+  if (node.kind !== "page") throw new ConvexError("Only pages have content.");
+  if (markdown.length > MAX_PAGE) throw new ConvexError("Page is too large.");
+  const now = Date.now();
+  const row = await ctx.db
+    .query("contents")
+    .withIndex("by_node", (q) => q.eq("nodeId", nodeId))
+    .first();
+  if (row === null) await ctx.db.insert("contents", { nodeId, markdown, updatedAt: now });
+  else if (row.markdown !== markdown) await ctx.db.patch(row._id, { markdown, updatedAt: now });
+  await ctx.db.patch(nodeId, { updatedAt: now });
+  return now;
+}
+
 export const save = mutation({
   args: { nodeId: v.id("nodes"), markdown: v.string() },
   handler: async (ctx, { nodeId, markdown }) => {
     await requireEditor(ctx);
-    const node = await getNode(ctx, nodeId);
-    if (node.kind !== "page") throw new ConvexError("Only pages have content.");
-    if (markdown.length > 500_000) throw new ConvexError("Page is too large.");
-    const now = Date.now();
-    const row = await ctx.db
-      .query("contents")
-      .withIndex("by_node", (q) => q.eq("nodeId", nodeId))
-      .first();
-    if (row === null) await ctx.db.insert("contents", { nodeId, markdown, updatedAt: now });
-    else if (row.markdown !== markdown) await ctx.db.patch(row._id, { markdown, updatedAt: now });
-    await ctx.db.patch(nodeId, { updatedAt: now });
-    return now;
+    return writePage(ctx, nodeId, markdown);
   },
 });
