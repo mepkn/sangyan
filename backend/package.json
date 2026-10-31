@@ -8,7 +8,8 @@
     "deploy": "convex deploy",
     "lint": "eslint .",
     "typecheck": "tsc -p convex --noEmit",
-    "check": "npm run typecheck && npm run lint",
+    "test": "vitest run",
+    "check": "npm run typecheck && npm run lint && npm run test",
     "setup:auth": "node scripts/setup-auth-keys.ts --apply"
   },
   "engines": {
@@ -20,11 +21,14 @@
     "convex": "^1.46.0"
   },
   "devDependencies": {
+    "@edge-runtime/vm": "^5.0.0",
     "@eslint/js": "^10.0.1",
     "@types/node": "^24.19.1",
+    "convex-test": "^0.0.61",
     "eslint": "^10.12.0",
     "globals": "^17.13.0",
     "typescript": "~6.0.2",
-    "typescript-eslint": "^8.71.1"
+    "typescript-eslint": "^8.71.1",
+    "vitest": "^5.0.5"
   }
 }

@@ -12,7 +12,8 @@ Notes I write while learning React, Svelte, Express and more, created and edited
   Nothing is sent until you save; unsaved changes are kept in the browser meanwhile
 - Code blocks with syntax highlighting, checklists, tables, links
 - `Ctrl+K` to jump to any page; light and dark theme
-- Anyone can read; only allowlisted emails can sign in and edit
+- Anyone can read; only allowlisted emails can sign in and edit. Sign-up confirms the email with a
+  6-digit code, and "Forgot password?" resets the password with one
 
 ## Stack
 
@@ -40,7 +41,8 @@ npm run dev          # http://localhost:5173
 | `scripts/deploy.sh` | Checks, deploys Convex, builds `web/` and uploads it to the VPS |
 | `DRY_RUN=1 scripts/deploy.sh` | Same, but nothing is deployed or uploaded |
 | `backend`: `npm run dev` | Local Convex backend |
-| `backend`: `npm run check` | Typecheck + lint |
+| `backend`: `npm run test` | Backend tests (convex-test) |
+| `backend`: `npm run check` | Typecheck + lint + tests |
 | `backend`: `npm run setup:auth` | Auth keys (`-- --prod` for production) |
 | `web`: `npm run dev` | Vite dev server |
 | `web`: `npm run build` | Production build into `web/dist` |
@@ -62,12 +64,16 @@ Caddy serves `/var/www/learn` with the SPA fallback `try_files {path} /index.htm
 
 - Auth: email + password (Convex Auth). `ALLOWED_EMAILS` is checked at sign-up/sign-in and on
   every write (`requireEditor` in `backend/convex/lib/access.ts`). Reads are public.
-- Prod env vars: `JWT_PRIVATE_KEY`, `JWKS`, `SITE_URL=https://learn.pknspace.com`, `ALLOWED_EMAILS`.
+- Prod env vars: `JWT_PRIVATE_KEY`, `JWKS`, `SITE_URL=https://learn.pknspace.com` and `ALLOWED_EMAILS`;
+  `RESEND_API_KEY` (sends the codes; set with `../scripts/set-resend-key.sh learn`).
 - Data: `nodes` is the tree (topics are top-level sections with a slug; every node below carries
   its `topicId`), `contents` holds each page's markdown, kept apart so saving a page doesn't
   re-send the tree.
 - Code map:
   - `backend/convex/nodes.ts`: tree queries and mutations, page save
+  - `backend/convex/otp.ts`: the 6-digit codes for sign-up verification and password reset, sent by
+    Resend from `Learn <noreply@send.pknspace.com>`. Without `RESEND_API_KEY` (local dev) the code is
+    only logged in the `npx convex dev` output.
   - `web/src/lib/tree.ts`: flattening the tree and working out drag-and-drop targets (tested)
   - `web/src/components/sidebar/`: the tree, menus, inline rename, drag and drop
   - `web/src/components/editor/Editor.tsx`: Tiptap with markdown in and out, right-click menu
