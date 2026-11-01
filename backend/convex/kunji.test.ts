@@ -144,14 +144,14 @@ describe("POST /kunji/call", () => {
   });
 
   it("search_notes finds pages by title and by text, with path, snippet and url", async () => {
-    vi.stubEnv("SITE_URL", "https://learn.example.com/");
+    vi.stubEnv("SITE_URL", "https://sangyan.example.com/");
     const { t, effect, intro } = await setup();
     const { result } = await call(t, "search_notes", { query: "cleanup" });
     expect(result.results[0]).toMatchObject({
       id: effect,
       title: "useEffect",
       path: ["React", "Hooks"],
-      url: `https://learn.example.com/react/${effect}`,
+      url: `https://sangyan.example.com/react/${effect}`,
     });
     expect(result.results[0].snippet).toContain("cleanup function");
     const byTitle = await call(t, "search_notes", { query: "useState" });
@@ -191,11 +191,11 @@ describe("POST /kunji/call", () => {
   });
 
   it("add_note creates a page at the end of a section named by path, ignoring case", async () => {
-    vi.stubEnv("SITE_URL", "https://learn.example.com");
+    vi.stubEnv("SITE_URL", "https://sangyan.example.com");
     const { t, hooks } = await setup();
     const { ok, result } = await call(t, "add_note", { section: "react /  HOOKS", title: " useRef ", markdown: "Holds a mutable value." });
     expect(ok).toBe(true);
-    expect(result).toMatchObject({ title: "useRef", path: ["React", "Hooks"], url: `https://learn.example.com/react/${result.id}` });
+    expect(result).toMatchObject({ title: "useRef", path: ["React", "Hooks"], url: `https://sangyan.example.com/react/${result.id}` });
     const page = await t.run(async (ctx) => await ctx.db.get(result.id));
     expect(page).toMatchObject({ kind: "page", parentId: hooks, order: 2 });
     expect((await call(t, "get_note", { id: result.id })).result.markdown).toBe("Holds a mutable value.");

@@ -1,4 +1,4 @@
-# Learn
+# Sangyan
 
 Notes I write while learning React, Svelte, Express and more, created and edited live on the site.
 
@@ -57,25 +57,25 @@ npm run dev          # http://localhost:5173
 Deploy key:
 
 ```bash
-cd backend && npx convex deployment token create learn-deploy --deployment praveen-nirmalkar:learn:production --save-env .env.prod.local
+cd backend && npx convex deployment token create sangyan-deploy --deployment praveen-nirmalkar:sangyan:production --save-env .env.prod.local
 ```
 
-Caddy serves `/var/www/learn` with the SPA fallback `try_files {path} /index.html`.
+Caddy serves `/var/www/sangyan` with the SPA fallback `try_files {path} /index.html`.
 
 ## How it works
 
 - Auth: email + password (Convex Auth). `ALLOWED_EMAILS` is checked at sign-up/sign-in and on
   every write (`requireEditor` in `backend/convex/lib/access.ts`). Reads are public.
-- Prod env vars: `JWT_PRIVATE_KEY`, `JWKS`, `SITE_URL=https://learn.pknspace.com` and `ALLOWED_EMAILS`;
-  `RESEND_API_KEY` (sends the codes; set with `../scripts/set-resend-key.sh learn`); `KUNJI_SECRET` and
-  `KUNJI_URL` (from learn's page in kunji).
+- Prod env vars: `JWT_PRIVATE_KEY`, `JWKS`, `SITE_URL=https://sangyan.pknspace.com` and `ALLOWED_EMAILS`;
+  `RESEND_API_KEY` (sends the codes; set with `../scripts/set-resend-key.sh sangyan`); `KUNJI_SECRET` and
+  `KUNJI_URL` (from sangyan's page in kunji).
 - Data: `nodes` is the tree (topics are top-level sections with a slug; every node below carries
   its `topicId`), `contents` holds each page's markdown, kept apart so saving a page doesn't
   re-send the tree.
 - Code map:
   - `backend/convex/nodes.ts`: tree queries and mutations, page save
   - `backend/convex/otp.ts`: the 6-digit codes for sign-up verification and password reset, sent by
-    Resend from `Learn <noreply@send.pknspace.com>`. Without `RESEND_API_KEY` (local dev) the code is
+    Resend from `Sangyan <noreply@send.pknspace.com>`. Without `RESEND_API_KEY` (local dev) the code is
     only logged in the `npx convex dev` output.
   - `backend/convex/http.ts`: the Convex Auth routes and kunji's `/kunji/*` routes.
   - `backend/convex/kunji.ts` + `lib/kunji.ts`: the kunji app contract (secret check, input check, the

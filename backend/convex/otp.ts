@@ -1,6 +1,6 @@
 import Resend from "@auth/core/providers/resend";
 
-const FROM = "Learn <noreply@send.pknspace.com>";
+const FROM = "Sangyan <noreply@send.pknspace.com>";
 
 /** A 6-digit code; the modulo bias over 2^32 is negligible. */
 function code(): string {
@@ -33,8 +33,8 @@ export const ResendOTP = Resend({
   async sendVerificationRequest({ identifier: email, token }) {
     await sendCode(
       email,
-      `${token} is your Learn code`,
-      `Your Learn verification code is ${token}. It expires in 15 minutes.`,
+      `${token} is your Sangyan code`,
+      `Your Sangyan verification code is ${token}. It expires in 15 minutes.`,
     );
   },
 });
@@ -48,8 +48,8 @@ export const ResendOTPReset = Resend({
   async sendVerificationRequest({ identifier: email, token }) {
     await sendCode(
       email,
-      `${token} is your Learn reset code`,
-      `Your Learn password reset code is ${token}. It expires in 15 minutes. If you didn't ask for it, ignore this email.`,
+      `${token} is your Sangyan reset code`,
+      `Your Sangyan password reset code is ${token}. It expires in 15 minutes. If you didn't ask for it, ignore this email.`,
     );
   },
 });

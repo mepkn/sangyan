@@ -60,7 +60,7 @@ export function Logo() {
   return (
     <Link to="/" className="flex items-center gap-2 font-semibold tracking-tight">
       <img src="/favicon.svg?v=2" alt="" className="size-6" />
-      Learn
+      Sangyan
     </Link>
   );
 }

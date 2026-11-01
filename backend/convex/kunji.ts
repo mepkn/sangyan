@@ -5,7 +5,7 @@ import { internalMutation, internalQuery, type QueryCtx } from "./_generated/ser
 import { findKunjiUser, type KunjiTool } from "./lib/kunji";
 import { insertNode, MAX_PAGE, writePage } from "./nodes";
 
-// Learn's tools for kunji (kunji SPEC.md → App contract). The notes are one
+// Sangyan's tools for kunji (kunji SPEC.md → App contract). The notes are one
 // shared tree that anyone can read on the site, so the tools see every page;
 // kunji still only reaches them for a verified, allowlisted user. The writes
 // only add: add_note creates a page in an existing section, append_to_note adds
@@ -200,7 +200,7 @@ export const tools: KunjiTool[] = [
   {
     name: "search_notes",
     description:
-      "Search the user's Learn notes (pages of study notes on React, Svelte, Express and more, grouped by topic " +
+      "Search the user's Sangyan notes (pages of study notes on React, Svelte, Express and more, grouped by topic " +
       "and section) by words in the title or text. Matches any of the words, best first, title matches before " +
       "text matches. Returns each page's id, title, path (topic and sections above it), a short snippet, url and " +
       "last update. Use get_note with the id to read a whole page.",
@@ -224,7 +224,7 @@ export const tools: KunjiTool[] = [
   {
     name: "get_note",
     description:
-      "Read one Learn note in full: its title, path (topic and sections above it), url, last update and its text " +
+      "Read one Sangyan note in full: its title, path (topic and sections above it), url, last update and its text " +
       `as markdown (cut at ${NOTE_MAX.toLocaleString("en")} characters, marked truncated). Take the id from search_notes.`,
     inputSchema: {
       type: "object",
@@ -237,7 +237,7 @@ export const tools: KunjiTool[] = [
   {
     name: "add_note",
     description:
-      "Create a new Learn page (note) at the end of an existing topic or section, with a title and markdown text. " +
+      "Create a new Sangyan page (note) at the end of an existing topic or section, with a title and markdown text. " +
       "Name the place by its path of titles, e.g. \"React\" or \"React / Hooks\" (ignoring case). It never creates " +
       "topics or sections; an unknown name is refused with the names that exist there. Returns the new page's id, " +
       "title, path and url.",
@@ -261,7 +261,7 @@ export const tools: KunjiTool[] = [
   {
     name: "append_to_note",
     description:
-      "Add markdown to the end of an existing Learn page, after a blank line; the existing text is kept. Take the id " +
+      "Add markdown to the end of an existing Sangyan page, after a blank line; the existing text is kept. Take the id " +
       "from search_notes. If the user is editing that page in the browser with unsaved changes, their next save " +
       "replaces the page and drops what was appended. Returns the page's id, title, path, url and new length.",
     inputSchema: {

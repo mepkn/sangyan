@@ -29,8 +29,8 @@ export function TopicPage() {
   }, [data, page]);
 
   useEffect(() => {
-    document.title = page ? `${page.title} · ${data?.topic.title}` : data ? `${data.topic.title} · Learn` : "Learn";
-    return () => void (document.title = "Learn");
+    document.title = page ? `${page.title} · ${data?.topic.title}` : data ? `${data.topic.title} · Sangyan` : "Sangyan";
+    return () => void (document.title = "Sangyan");
   }, [page, data]);
 
   if (data === undefined) {
